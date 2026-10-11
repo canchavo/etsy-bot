@@ -224,8 +224,33 @@ def _create(shop_id, tok, data):
     return _req("POST", f"/shops/{shop_id}/listings", tok, data=form)
 
 
+import re as _re
+
+_TEXT_WORDS = _re.compile(r"\b(quotes?|sayings?|typography|lettering|affirmations?)\b", _re.I)
+
+
+def _strip_text_claims(p: dict) -> dict:
+    """Our artwork never contains text. If the AI used words like 'quote' in the title/tags,
+    remove them so the listing does not promise text, and add a short clarification."""
+    hay = f"{p.get('title', '')} {p.get('niche', '')} {' '.join(p.get('tags', []))}"
+    if not _TEXT_WORDS.search(hay):
+        return p
+    q = dict(p)
+    t = _TEXT_WORDS.sub("", q["title"])
+    t = _re.sub(r"\s{2,}", " ", t)
+    t = _re.sub(r"\s+([,|])", r"\1", t)
+    t = _re.sub(r"([,|])\s*([,|])", r"\1", t).strip(" ,|-")
+    q["title"] = t
+    q["tags"] = [x for x in (_re.sub(r"\s{2,}", " ", _TEXT_WORDS.sub("", tg)).strip() for tg in q.get("tags", [])) if len(x) >= 3]
+    note = "Please note: these designs are artwork only and do not include any quotes or text."
+    if note not in q.get("description", ""):
+        q["description"] = q.get("description", "") + "\n\n" + note
+    return q
+
+
 def publish(p: dict, delivery: list, photos: list, build_meta: dict, mode="active") -> dict:
     """delivery: [(name, bytes)] files, photos: [(name, bytes)] jpgs. Returns {listing_id, url, state}."""
+    p = _strip_text_claims(p)
     tok = token()
     shop_id = tok.get("shop_id") or get_shop(tok)["shop_id"]
     price = usd_to(tok.get("currency", "USD"), float(p["price_usd"]))
