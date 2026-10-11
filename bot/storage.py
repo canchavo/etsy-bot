@@ -110,7 +110,9 @@ def commit_and_push(message: str) -> bool:
         return False  # local run
     _git("config", "user.name", "etsy-bot")
     _git("config", "user.email", "etsy-bot@users.noreply.github.com")
-    _git("add", "state")
+    if not config.STATE_DIR.exists():
+        return False
+    _git("add", "-A", "state")
     if _git("diff", "--cached", "--quiet", check=False).returncode == 0:
         return False
     _git("commit", "-m", message)

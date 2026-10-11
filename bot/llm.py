@@ -103,8 +103,16 @@ def _gemini(prompt: str, system: str, temperature: float):
                 )
                 if r.status_code in (404, 400) and attempt == 0 and "not found" in r.text.lower():
                     raise LLMError(f"{model} yok")
-                if r.status_code == 429 or r.status_code >= 500:
-                    last = f"{model}: HTTP {r.status_code} {r.text[:200]}"
+                if r.status_code >= 500:
+                    # overloaded model: try the next model quickly instead of waiting
+                    last = f"{model}: HTTP {r.status_code}"
+                    print(f"[llm] {last} — sıradaki modele geçiliyor")
+                    time.sleep(3)
+                    break
+                if r.status_code == 429:
+                    last = f"{model}: HTTP 429 {r.text[:200]}"
+                    if "per day" in r.text.lower() or "PerDay" in r.text:
+                        break  # daily quota of this model used up
                     wait = 20 * (attempt + 1)
                     print(f"[llm] {last} — {wait}s bekleniyor")
                     time.sleep(wait)
