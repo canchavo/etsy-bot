@@ -101,7 +101,7 @@ def _gemini(prompt: str, system: str, temperature: float):
                     json=body,
                     timeout=180,
                 )
-                if r.status_code in (404, 400) and attempt == 0 and "not found" in r.text.lower():
+                if r.status_code == 404:
                     raise LLMError(f"{model} yok")
                 if r.status_code >= 500:
                     # overloaded model: try the next model quickly instead of waiting

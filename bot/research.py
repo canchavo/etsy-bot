@@ -56,6 +56,7 @@ Rules:
 - Each idea must be a specific, buyer-oriented niche (style + theme), not generic. e.g. "vintage botanical mushroom prints", "cute kawaii Christmas animals coloring pages for kids".
 - No trademarks, brands, celebrities, characters, sports teams, franchises, logos, or copyrighted styles.
 - No AI prompt products, no SVG/cut files, no templates that need Canva.
+- The artwork is AI generated and CANNOT contain readable text: never propose quotes, sayings, typography, lettering, names, monograms, calendars or anything that depends on words. Focus on illustration, painting, pattern and character based designs.
 - Avoid these niches we already used recently: {', '.join(used) or 'none'}.
 - Mix product types.
 
@@ -136,6 +137,7 @@ Niche: {idea['niche']}
 Main search phrase: {idea.get('search_query', '')}
 Price must be between {lo} and {hi} USD (end with .99 or .49 is fine).
 Never use trademarks, brand names, characters, celebrities or copyrighted styles in any field.
+The artwork can NOT contain any readable text, so do not plan quotes, words or lettering in the images.
 All text in English. Image prompts must describe ORIGINAL artwork only.
 
 Return JSON with these fields:
