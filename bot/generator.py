@@ -62,14 +62,15 @@ def product_caption(p: dict) -> str:
         r = p["research"]
         lines.append(f"📊 Etsy: {r['etsy_results']:,} rakip ilan, ilk 25'te ortanca {int(r.get('etsy_median_favs', 0))} favori")
     lines.append(f"🏷 {esc(', '.join(p['tags']))}")
-    lines.append(f"📁 Teslimat: {esc(', '.join(f['name'] for f in p['files']))}")
+    files = "\n".join(f"  • <code>{esc(f['name'])}</code> ({f['size'] / 1048576:.1f} MB)" for f in p["files"])
+    lines.append(f"📁 Teslimat dosyaları:\n{files}")
     lines.append(f"\n<code>{p['id']}</code>")
     return "\n".join(lines)
 
 
 def approval_buttons(pid):
     return [[("✅ Onayla ve yayınla", f"ok:{pid}"), ("❌ Reddet", f"no:{pid}")],
-            [("📝 Açıklamayı göster", f"desc:{pid}")]]
+            [("📝 Açıklama", f"desc:{pid}"), ("📦 Dosyaları gönder", f"files:{pid}")]]
 
 
 def build_one(idea: dict, day: dt.date) -> dict:

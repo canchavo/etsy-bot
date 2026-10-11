@@ -55,6 +55,15 @@ def _handle_callback(cb, meta):
         telegram.answer(cb["id"])
         telegram.send(f"<b>{esc(p['title'])}</b>\n\n{esc(p['description'])[:3800]}")
         return False
+    if action == "files":
+        telegram.answer(cb["id"], "Dosyalar gönderiliyor…")
+        try:
+            for f in p["files"]:
+                data = assets.download(pid, "file__" + f["name"])
+                telegram.document(f["name"], data, f"📦 {esc(p['title'][:80])}")
+        except Exception as e:
+            telegram.send(f"⚠️ Dosyalar gönderilemedi: <code>{esc(str(e)[:300])}</code>")
+        return False
     if action == "no":
         if p["status"] == "published":
             telegram.answer(cb["id"], "Bu ürün zaten yayınlandı")
