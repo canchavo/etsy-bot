@@ -10,7 +10,7 @@ from .telegram import esc
 HELP = """🤖 <b>Etsy Bot komutları</b>
 /durum – ürün sayıları ve Etsy bağlantısı
 /bekleyen – onay bekleyen ürünleri tekrar gönder
-/uret – şimdi yeni ürün üret (isteğe bağlı sayı: /uret 2)
+/uret – şimdi 1 ek ürün üret (/uret 2 → 2 ürün)
 /etsy – Etsy mağazanı bağla / yeniden bağla
 /kod &lt;adres&gt; – Etsy onayından sonra çıkan adresi gönder
 /panel – web panel adresi
@@ -151,9 +151,9 @@ def _handle_message(m, meta):
                           else [[("🔁 Tekrar dene", f"retry:{p['id']}"), ("❌ Reddet", f"no:{p['id']}")]])
     elif cmd == "/uret":
         try:
-            n = int(arg) if arg.strip().isdigit() else None
+            n = int(arg) if arg.strip().isdigit() else 1  # extra production: 1 product by default
             _dispatch_generate(n)
-            telegram.send(f"🚀 Üretim başlatıldı{f' ({n} ürün)' if n else ''}. Ürünler hazır olunca buraya gelecek.")
+            telegram.send(f"🚀 {n} ürünlük ek üretim başlatıldı. Hazır olunca buraya gelecek (ürün başına ~5-8 dk).")
         except Exception as e:
             telegram.send(f"⚠️ Üretim başlatılamadı: <code>{esc(str(e))}</code>")
     elif cmd == "/etsy":
