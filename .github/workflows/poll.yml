@@ -1,0 +1,62 @@
+name: Telegram onay kontrolü
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: poll
+  cancel-in-progress: false
+permissions:
+  contents: write
+  actions: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      panel: ${{ steps.poll.outputs.changed }}
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ETSY_KEYSTRING: ${{ secrets.ETSY_KEYSTRING }}
+      ETSY_SHARED_SECRET: ${{ secrets.ETSY_SHARED_SECRET }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      POLLINATIONS_TOKEN: ${{ secrets.POLLINATIONS_TOKEN }}
+      STATE_KEY: ${{ secrets.STATE_KEY }}
+      PANEL_PASSWORD: ${{ secrets.PANEL_PASSWORD }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Telegram'ı kontrol et ve onaylananları yayınla
+        id: poll
+        run: python -m bot poll | tee poll.log && grep -o 'changed=.*' poll.log | tail -1 | sed 's/changed=True/changed=true/;s/changed=False/changed=false/' >> "$GITHUB_OUTPUT"
+      - name: Paneli hazırla
+        if: steps.poll.outputs.changed == 'true'
+        run: python -m bot panel --out _site
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.poll.outputs.changed == 'true'
+        with:
+          path: _site
+  deploy-panel:
+    needs: run
+    if: always() && needs.run.outputs.panel == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/deploy-pages@v4
