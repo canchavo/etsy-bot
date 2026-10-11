@@ -2,7 +2,7 @@ name: Kurulum testi
 on:
   workflow_dispatch:
 concurrency:
-  group: poll
+  group: selftest
   cancel-in-progress: false
 permissions:
   contents: write

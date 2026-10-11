@@ -49,6 +49,11 @@ jobs:
           else
             python -m bot generate
           fi
+      - name: Onayları dinlemeye başla (~1 saat)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run poll.yml --repo "$GITHUB_REPOSITORY" -f chain=6
       - name: Paneli hazırla
         if: always()
         run: python -m bot panel --out _site

@@ -3,6 +3,11 @@ on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
+    inputs:
+      chain:
+        description: "Kaç tur daha dinlesin (her tur ~8 dk)"
+        required: false
+        default: "0"
 concurrency:
   group: poll
   cancel-in-progress: false
@@ -12,7 +17,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     outputs:
       panel: ${{ steps.poll.outputs.changed }}
     env:
@@ -39,7 +44,18 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Telegram'ı kontrol et ve onaylananları yayınla
         id: poll
-        run: python -m bot poll | tee poll.log && grep -o 'changed=.*' poll.log | tail -1 | sed 's/changed=True/changed=true/;s/changed=False/changed=false/' >> "$GITHUB_OUTPUT"
+        run: python -m bot poll --loop 480 | tee poll.log && grep -o 'changed=.*' poll.log | tail -1 | sed 's/changed=True/changed=true/;s/changed=False/changed=false/' >> "$GITHUB_OUTPUT"
+      - name: Dinlemeye devam et
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHAIN: ${{ github.event.inputs.chain || '0' }}
+          CHANGED: ${{ steps.poll.outputs.changed }}
+        run: |
+          next=$(( CHAIN - 1 ))
+          # someone is using the bot right now -> keep listening a bit longer
+          if [ "$CHANGED" = "true" ] && [ $next -lt 2 ]; then next=2; fi
+          if [ $next -ge 0 ]; then gh workflow run poll.yml --repo "$GITHUB_REPOSITORY" -f chain=$next; fi
       - name: Paneli hazırla
         if: steps.poll.outputs.changed == 'true'
         run: python -m bot panel --out _site
