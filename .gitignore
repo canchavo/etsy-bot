@@ -1,0 +1,7 @@
+.work/
+_site/
+__pycache__/
+*.pyc
+.env
+state/*.tmp
+state/products/*.tmp
