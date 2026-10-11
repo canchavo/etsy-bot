@@ -81,7 +81,10 @@ def cmd_selftest(a):
     lines.append(f"↩️ Etsy Callback URL (Etsy uygulamanıza bunu yazın): <code>{esc(config.etsy_redirect_uri())}</code>")
     msg = "\n".join(lines)
     print(msg)
-    telegram.send(msg)
+    try:
+        telegram.send(msg)
+    except Exception as e:
+        print(f"Telegram'a gönderilemedi: {e}")
     storage.commit_and_push("Kurulum testi")
 
 

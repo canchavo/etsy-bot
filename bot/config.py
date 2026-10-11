@@ -56,7 +56,9 @@ def env(name: str, default: str = "") -> str:
     return (os.environ.get(name) or default).strip()
 
 
-TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN").replace(" ", "").strip("'\"")
+if TELEGRAM_BOT_TOKEN.lower().startswith("bot") and ":" in TELEGRAM_BOT_TOKEN:
+    TELEGRAM_BOT_TOKEN = TELEGRAM_BOT_TOKEN[3:]
 TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID")
 ETSY_KEYSTRING = env("ETSY_KEYSTRING")
 ETSY_SHARED_SECRET = env("ETSY_SHARED_SECRET")
