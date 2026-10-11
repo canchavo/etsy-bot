@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Etsy Bot Paneli</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23F1641E'/><text x='16' y='22' font-size='17' text-anchor='middle' fill='white' font-family='Arial' font-weight='700'>E</text></svg>">
+<style>
+:root{
+  --bg:#f6f4f1;--card:#ffffff;--ink:#1d1b19;--muted:#6f6a64;--line:#e6e1da;
+  --accent:#d9561a;--accent-soft:#fbe7dc;
+  --ok:#1f7a4d;--ok-soft:#dcf2e6;--warn:#a15c00;--warn-soft:#fdf0d6;--bad:#b42318;--bad-soft:#fde4e1;--info:#3b5bdb;--info-soft:#e3e9ff;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#141317;--card:#1d1c21;--ink:#f1eee9;--muted:#a19b93;--line:#2e2c33;
+  --accent:#f1641e;--accent-soft:#3a2216;
+  --ok:#5fd39a;--ok-soft:#173a29;--warn:#f2b45a;--warn-soft:#3b2c12;--bad:#ff8a80;--bad-soft:#3f1d1b;--info:#9db1ff;--info-soft:#1f2747;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.logo{width:38px;height:38px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;font-size:19px}
+h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px}
+.spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:13px}
+.note{background:var(--accent-soft);border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--ink)}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.card img{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--line);display:block}
+.body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.title{font-weight:600;font-size:14.5px;line-height:1.35}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:10px;flex-wrap:wrap}
+.badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
+.s-pending{background:var(--info-soft);color:var(--info)}
+.s-published{background:var(--ok-soft);color:var(--ok)}
+.s-rejected{background:var(--bad-soft);color:var(--bad)}
+.s-failed,.s-approved,.s-publishing{background:var(--warn-soft);color:var(--warn)}
+.row{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-top:auto;padding-top:6px}
+a{color:var(--accent)}
+details{font-size:13px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--ink)}
+pre{white-space:pre-wrap;font:inherit;margin:6px 0}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.tags span{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12px}
+#lock{max-width:360px;margin:12vh auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+#lock input[type=password]{width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;margin:12px 0}
+#lock label{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-bottom:12px}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+.empty{color:var(--muted);text-align:center;padding:40px 0}
+</style>
+</head>
+<body>
+<div id="lock">
+  <div style="display:flex;gap:10px;align-items:center"><div class="logo">E</div><h1>Etsy Bot Paneli</h1></div>
+  <form id="f">
+    <input type="password" id="pw" placeholder="Panel şifresi" autocomplete="current-password" autofocus>
+    <label><input type="checkbox" id="rem"> Bu cihazda hatırla</label>
+    <button class="btn primary" style="width:100%">Aç</button>
+    <div class="err" id="err"></div>
+  </form>
+</div>
+<div class="wrap" id="app" hidden>
+  <header>
+    <div class="logo">E</div>
+    <div><h1>Etsy Bot Paneli</h1><div class="sub" id="upd"></div></div>
+    <div class="spacer"></div>
+    <a class="btn" id="shop" target="_blank" rel="noopener" hidden>Mağaza</a>
+    <button class="btn" id="out">Kilitle</button>
+  </header>
+  <div class="stats" id="stats"></div>
+  <div class="note">Onay ve reddetme işlemleri <b>Telegram</b> üzerinden yapılır. Bu sayfa ürünlerin durumunu gösterir ve her bot çalışmasından sonra güncellenir.</div>
+  <div class="chips" id="chips"></div>
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+const LABEL={pending:"Onay bekliyor",approved:"Onaylandı",publishing:"Yükleniyor",published:"Yayında",rejected:"Reddedildi",failed:"Hata"};
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+let DATA=null,FILTER="all";
+function store(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+function read(k){try{return localStorage.getItem(k)}catch(e){return null}}
+async function decrypt(pw){
+  const r=await fetch("data.json?"+Date.now());const env=await r.json();
+  if(!env.v) throw new Error("Panel şifresi henüz ayarlanmamış (PANEL_PASSWORD).");
+  const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
+  const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(env.salt),iterations:env.iter,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["decrypt"]);
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(env.iv)},key,b64(env.data));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function fmtDate(t){return t?new Date(t*1000).toLocaleString("tr-TR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):""}
+function render(){
+  const ps=DATA.products;
+  const c=s=>ps.filter(p=>p.status===s).length;
+  document.getElementById("upd").textContent="Son güncelleme: "+fmtDate(DATA.generated_at)+(DATA.etsy.connected?" · Etsy bağlı":" · Etsy bağlı değil");
+  const shop=document.getElementById("shop");
+  if(DATA.etsy.shop_url){shop.href=DATA.etsy.shop_url;shop.hidden=false;shop.textContent=DATA.etsy.shop||"Mağaza"}
+  document.getElementById("stats").innerHTML=[["Toplam",ps.length],["Onay bekliyor",c("pending")],["Yayında",c("published")],["Reddedildi",c("rejected")],["Hata",c("failed")]]
+    .map(([l,v])=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  const filters=[["all","Tümü"],["pending","Onay bekliyor"],["published","Yayında"],["failed","Hata"],["rejected","Reddedildi"]];
+  document.getElementById("chips").innerHTML=filters.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${FILTER===k}">${l}</button>`).join("");
+  const list=ps.filter(p=>FILTER==="all"||p.status===FILTER);
+  document.getElementById("grid").innerHTML=list.length?list.map(p=>`
+    <article class="card">
+      ${p.thumb?`<img loading="lazy" alt="" src="data:image/jpeg;base64,${p.thumb}">`:""}
+      <div class="body">
+        <div class="title">${esc(p.title)}</div>
+        <div class="meta"><span>${esc(p.type)}</span><span>$${Number(p.price||0).toFixed(2)}</span><span>${fmtDate(p.created)}</span></div>
+        <div class="meta"><span>Niş: ${esc(p.niche)}</span></div>
+        ${p.error&&p.status==="failed"?`<div class="meta" style="color:var(--bad)">${esc(p.error).slice(0,220)}</div>`:""}
+        <details><summary>Detaylar</summary>
+          <div class="tags">${(p.tags||[]).map(t=>`<span>${esc(t)}</span>`).join("")}</div>
+          <div><b>Dosyalar:</b> ${(p.files||[]).map(f=>esc(f.name)+" ("+(f.size/1048576).toFixed(1)+" MB)").join(", ")}</div>
+          ${p.research&&p.research.etsy_results!=null?`<div><b>Etsy verisi:</b> ${Number(p.research.etsy_results).toLocaleString("tr-TR")} rakip ilan, ortanca ${Math.round(p.research.etsy_median_favs||0)} favori · arama: “${esc(p.research.search_query)}”</div>`:""}
+          <pre>${esc(p.description)}</pre>
+        </details>
+        <div class="row"><span class="badge s-${p.status}">${LABEL[p.status]||p.status}</span>
+          ${p.etsy_url?`<a href="${esc(p.etsy_url)}" target="_blank" rel="noopener">Etsy'de aç →</a>`:`<span class="sub">${esc(p.id)}</span>`}</div>
+      </div>
+    </article>`).join(""):`<div class="empty">Bu filtrede ürün yok.</div>`;
+}
+document.getElementById("chips").addEventListener("click",e=>{const f=e.target.dataset.f;if(f){FILTER=f;render()}});
+async function open_(pw,remember){
+  const err=document.getElementById("err");err.textContent="";
+  try{DATA=await decrypt(pw)}catch(e){err.textContent=e.message.includes("PANEL")?e.message:"Şifre yanlış veya veri okunamadı.";store("pw",null);return}
+  if(remember) store("pw",pw);
+  document.getElementById("lock").hidden=true;document.getElementById("app").hidden=false;render();
+}
+document.getElementById("f").addEventListener("submit",e=>{e.preventDefault();open_(document.getElementById("pw").value,document.getElementById("rem").checked)});
+document.getElementById("out").addEventListener("click",()=>{store("pw",null);location.reload()});
+const saved=read("pw");if(saved) open_(saved,true);
+</script>
+</body>
+</html>
