@@ -179,11 +179,28 @@ def _handle_message(m, meta):
     return changed
 
 
-def run():
+def run(loop_seconds=0):
+    """Process Telegram updates. With loop_seconds>0 keep long-polling so buttons react
+    within seconds; state is pushed to git after every batch of changes."""
+    deadline = time.time() + loop_seconds
+    any_change = False
+    while True:
+        remaining = deadline - time.time()
+        changed = _run_once(wait=max(0, min(25, remaining)) if loop_seconds else 0)
+        if changed:
+            any_change = True
+            if loop_seconds:
+                storage.commit_and_push("Telegram işlemleri")
+        if time.time() >= deadline:
+            break
+    return any_change
+
+
+def _run_once(wait=0):
     meta = storage.load_meta()
     offset = meta.get("tg_offset", 0)
     changed = False
-    ups = telegram.updates(offset)
+    ups = telegram.updates(offset, wait)
     for u in ups:
         offset = max(offset, u["update_id"] + 1)
         meta["tg_offset"] = offset
@@ -205,6 +222,10 @@ def run():
                 telegram.send(f"⚠️ Hata: <code>{esc(str(e)[:500])}</code>")
             except Exception:
                 pass
+    if meta.get("last_keepalive", 0) > time.time() - 3600:
+        return changed
+    meta["last_keepalive"] = int(time.time())
+    storage.save_meta(meta)
     try:
         if etsy.keepalive():
             changed = True

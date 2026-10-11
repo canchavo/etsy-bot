@@ -25,7 +25,7 @@ def cmd_generate(a):
 
 def cmd_poll(a):
     from . import poller
-    changed = poller.run()
+    changed = poller.run(loop_seconds=a.loop)
     if changed:
         storage.commit_and_push("Telegram işlemleri")
     print(f"changed={changed}")
@@ -105,7 +105,8 @@ def main(argv=None):
     g = sub.add_parser("generate")
     g.add_argument("--count", type=int, default=None)
     g.add_argument("--force", action="store_true")
-    sub.add_parser("poll")
+    pl = sub.add_parser("poll")
+    pl.add_argument("--loop", type=int, default=0, help="seconds to keep listening")
     e = sub.add_parser("etsy-connect")
     e.add_argument("url", nargs="?", default="")
     sub.add_parser("selftest")

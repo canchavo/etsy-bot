@@ -83,8 +83,9 @@ def album(photos, caption=""):
     return call("sendMediaGroup", {"chat_id": config.TELEGRAM_CHAT_ID, "media": json.dumps(media)}, files=files, timeout=180)
 
 
-def updates(offset):
-    return call("getUpdates", {"offset": offset, "timeout": 0, "allowed_updates": json.dumps(["message", "callback_query"])}) or []
+def updates(offset, wait=0):
+    return call("getUpdates", {"offset": offset, "timeout": int(wait),
+                               "allowed_updates": json.dumps(["message", "callback_query"])}, timeout=int(wait) + 30) or []
 
 
 def document(name, data, caption=""):
