@@ -55,6 +55,9 @@ jobs:
           next=$(( CHAIN - 1 ))
           # someone is using the bot right now -> keep listening a bit longer
           if [ "$CHANGED" = "true" ] && [ $next -lt 2 ]; then next=2; fi
+          # daytime in Turkey (09:00-24:00): listen continuously so buttons always react within seconds
+          hour=$(TZ=Europe/Istanbul date +%H)
+          if [ $((10#$hour)) -ge 9 ] && [ $next -lt 1 ]; then next=1; fi
           if [ $next -ge 0 ]; then gh workflow run poll.yml --repo "$GITHUB_REPOSITORY" -f chain=$next; fi
       - name: Paneli hazırla
         if: steps.poll.outputs.changed == 'true'
