@@ -146,13 +146,22 @@ def _pollinations(prompt, w, h, seed):
     raise ImageError(f"Pollinations: {last}")
 
 
+MAX_SIDE = 1024  # Cloudflare bills per 512x512 output tile: 1024px = 4 tiles, 1920px = 12-16 tiles
+
+
 def generate(prompt: str, width: int, height: int, seed: int = None) -> Image.Image:
     w, h = _snap(width), _snap(height)
+    # generate small (cheap on the free daily allowance) and upscale locally; every product
+    # resizes to its print size afterwards anyway
+    k = min(1.0, MAX_SIDE / max(w, h))
+    gw, gh = _snap(w * k), _snap(h * k)
     seed = seed if seed is not None else random.randint(1, 2**31 - 1)
     errors = []
     for name, fn in (("cloudflare", _cloudflare), ("pollinations", _pollinations)):
         try:
-            img = fn(prompt, w, h, seed)
+            img = fn(prompt, gw, gh, seed)
+            if img.size != (w, h):
+                img = img.resize((w, h), Image.LANCZOS)
             stats[name] += 1
             return img
         except Exception as e:
