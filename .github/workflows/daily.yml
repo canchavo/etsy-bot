@@ -1,7 +1,7 @@
 name: Günlük ürün üretimi
 on:
-  schedule:
-    - cron: "23 6 * * *"   # her gün 09:23 (Türkiye saati)
+  # GitHub's own cron is unreliable (fired 9 hours late), so there is no schedule here:
+  # the always-on Telegram listener (poll.yml) starts this every day at 09:20 Turkey time.
   workflow_dispatch:
     inputs:
       count:
