@@ -179,11 +179,48 @@ def _handle_message(m, meta):
     return changed
 
 
+DAILY_AT = (9, 20)  # local time the daily production starts
+
+
+def _maybe_start_daily():
+    """GitHub's own cron is unreliable, so the always-running listener starts the
+    daily production itself once per day after 09:20 (Turkey time)."""
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    now = dt.datetime.now(ZoneInfo(config.settings()["timezone"]))
+    if (now.hour, now.minute) < DAILY_AT:
+        return False
+    today = now.date().isoformat()
+    meta = storage.load_meta()
+    if meta.get("daily_started") == today:
+        return False
+    if any(p.get("day") == today for p in storage.all_products()):
+        meta["daily_started"] = today  # already produced today (manual run / old cron)
+        storage.save_meta(meta)
+        return True
+    try:
+        _dispatch_generate()
+        print(f"[poll] günlük üretim başlatıldı ({today})", flush=True)
+    except Exception as e:
+        print(f"[poll] günlük üretim başlatılamadı: {e}", flush=True)
+        return False
+    meta["daily_started"] = today
+    storage.save_meta(meta)
+    return True
+
+
 def run(loop_seconds=0):
     """Process Telegram updates. With loop_seconds>0 keep long-polling so buttons react
     within seconds; state is pushed to git after every batch of changes."""
     deadline = time.time() + loop_seconds
     any_change = False
+    if loop_seconds:
+        try:
+            if _maybe_start_daily():
+                any_change = True
+                storage.commit_and_push("Günlük üretim başlatıldı")
+        except Exception as e:
+            print(f"[poll] günlük kontrol hatası: {e}", flush=True)
     while True:
         remaining = deadline - time.time()
         changed = _run_once(wait=max(0, min(25, remaining)) if loop_seconds else 0)

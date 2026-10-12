@@ -122,8 +122,7 @@ def run(count=None, force=False):
     if not force and not count:
         target = max(0, target - len(already))
     if target == 0:
-        print("[generate] Bugünün ürünleri zaten hazır.")
-        notify("ℹ️ Bugünün ürünleri zaten hazır. Ek ürün için /uret 1 yazın.")
+        print("[generate] Bugünün ürünleri zaten hazır.")  # (no Telegram message: avoid duplicates from backup triggers)
         return []
     notify(f"🔎 Günlük üretim başladı: {target} ürün hazırlanıyor… (genellikle 15-30 dk)")
     try:
