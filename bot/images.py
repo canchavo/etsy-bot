@@ -59,7 +59,8 @@ def _cover(img: Image.Image, w: int, h: int) -> Image.Image:
 
 def _quota_error(text: str) -> bool:
     t = text.lower()
-    return any(k in t for k in ("neuron", "quota", "daily", "limit exceeded", "allocation", "capacity exceeded", "4006"))
+    # only the real daily free-allowance error; "capacity temporarily exceeded" is transient and retried
+    return any(k in t for k in ("neuron", "quota", "daily", "allocation", "4006"))
 
 
 def _cloudflare(prompt, w, h, seed):
@@ -71,7 +72,7 @@ def _cloudflare(prompt, w, h, seed):
     for model in CF_MULTIPART_MODELS:
         if model in _disabled:
             continue
-        for attempt in range(3):
+        for attempt in range(4):
             try:
                 files = {
                     "prompt": (None, prompt[:2000]),
@@ -88,12 +89,12 @@ def _cloudflare(prompt, w, h, seed):
                 else:
                     errs.append(f"{model.split('/')[-1]}: HTTP {r.status_code} {r.text[:160]}")
                     print(f"[images] {errs[-1]}", flush=True)
-                    if _quota_error(r.text) or r.status_code in (401, 403, 429):
+                    if _quota_error(r.text) or r.status_code in (401, 403):
                         _disabled.add(model)
                         break
             except Exception as e:
                 errs.append(f"{model.split('/')[-1]}: {e}")
-            time.sleep(4 * (attempt + 1))
+            time.sleep(8 * (attempt + 1))
     for model in CF_JSON_MODELS:
         if model in _disabled:
             continue
@@ -105,7 +106,7 @@ def _cloudflare(prompt, w, h, seed):
                     return _cover(_decode(img_b64), w, h)
             errs.append(f"{model.split('/')[-1]}: HTTP {r.status_code} {r.text[:160]}")
             print(f"[images] {errs[-1]}", flush=True)
-            if _quota_error(r.text) or r.status_code in (401, 403, 429):
+            if _quota_error(r.text) or r.status_code in (401, 403):
                 _disabled.add(model)
         except Exception as e:
             errs.append(f"{model.split('/')[-1]}: {e}")
