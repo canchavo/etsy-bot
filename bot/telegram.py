@@ -84,8 +84,14 @@ def album(photos, caption=""):
 
 
 def updates(offset, wait=0):
-    return call("getUpdates", {"offset": offset, "timeout": int(wait),
-                               "allowed_updates": json.dumps(["message", "callback_query"])}, timeout=int(wait) + 30) or []
+    try:
+        return call("getUpdates", {"offset": offset, "timeout": int(wait),
+                                   "allowed_updates": json.dumps(["message", "callback_query"])}, timeout=int(wait) + 30) or []
+    except RuntimeError as e:
+        if "Conflict" in str(e):  # another getUpdates (e.g. the Cloudflare trigger peeking) - just retry later
+            time.sleep(2)
+            return []
+        raise
 
 
 def document(name, data, caption=""):
