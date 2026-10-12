@@ -145,17 +145,22 @@ def run(count=None, force=False):
             failed.append(f"{idea['niche']} ({idea['type']}): {str(e)[:180]}")
             if len(failed) >= target + 3:
                 break
+            if images.quota_exhausted():
+                break  # no image provider left today, don't waste the remaining ideas
             if "Görsel üretilemedi" in str(e) and images.stats["cloudflare"] == 0 and images.stats["pollinations"] == 0 and len(failed) >= 2:
                 break  # image providers are down, no point in trying more
     summary = [f"📋 <b>Günlük özet ({day.isoformat()})</b>: {len(made)}/{target} ürün hazırlandı."]
     if made:
         summary.append("Onay bekleyen ürünler yukarıda. ✅ ile onaylarsanız Etsy'de yayınlanır.")
-    if failed:
+    if images.quota_exhausted():
+        summary.append("\n⛔ <b>Bugünkü ücretsiz görsel kotası doldu.</b> Kota her gün 03:00'te yenilenir; "
+                       "yarın 09:20'deki otomatik üretim normal çalışır. Ek ürünü yarın /uret ile isteyebilirsin.")
+    elif failed:
         summary.append("\n⚠️ Başarısız denemeler:\n" + "\n".join(f"• {esc(f)}" for f in failed[:6]))
     summary.append(f"\n🖼 Görsel: Cloudflare {images.stats['cloudflare']}, Pollinations {images.stats['pollinations']}, hata {images.stats['failed']}")
     if config.pages_url():
         summary.append(f"🌐 Panel: {config.pages_url()}")
     notify("\n".join(summary))
-    if not made:
+    if not made and not images.quota_exhausted():
         raise RuntimeError("Hiç ürün üretilemedi")
     return made

@@ -25,6 +25,14 @@ class ImageError(Exception):
     pass
 
 
+QUOTA_MSG = "Cloudflare günlük ücretsiz görsel kotası doldu (her gün 03:00'te yenilenir)"
+
+
+def quota_exhausted():
+    """True when every image provider is out for today."""
+    return all(m in _disabled for m in CF_MULTIPART_MODELS + CF_JSON_MODELS) and "pollinations" in _disabled
+
+
 def _snap(v: int) -> int:
     v = max(256, min(1920, int(v)))
     return v - v % 16
@@ -59,7 +67,7 @@ def _cloudflare(prompt, w, h, seed):
         raise ImageError("Cloudflare anahtarı yok")
     base = f"https://api.cloudflare.com/client/v4/accounts/{config.CLOUDFLARE_ACCOUNT_ID}/ai/run/"
     headers = {"Authorization": f"Bearer {config.CLOUDFLARE_API_TOKEN}"}
-    last = ""
+    errs = []
     for model in CF_MULTIPART_MODELS:
         if model in _disabled:
             continue
@@ -76,30 +84,34 @@ def _cloudflare(prompt, w, h, seed):
                     img_b64 = (data.get("result") or {}).get("image")
                     if img_b64:
                         return _decode(img_b64)
-                    last = f"{model}: boş yanıt"
+                    errs.append(f"{model.split('/')[-1]}: boş yanıt")
                 else:
-                    last = f"{model}: HTTP {r.status_code} {r.text[:200]}"
-                    if _quota_error(r.text) or r.status_code in (401, 403):
+                    errs.append(f"{model.split('/')[-1]}: HTTP {r.status_code} {r.text[:160]}")
+                    print(f"[images] {errs[-1]}", flush=True)
+                    if _quota_error(r.text) or r.status_code in (401, 403, 429):
                         _disabled.add(model)
                         break
             except Exception as e:
-                last = f"{model}: {e}"
+                errs.append(f"{model.split('/')[-1]}: {e}")
             time.sleep(4 * (attempt + 1))
     for model in CF_JSON_MODELS:
         if model in _disabled:
             continue
         try:
-            r = requests.post(base + model, headers=headers, json={"prompt": prompt[:2000], "steps": 8, "seed": seed}, timeout=180)
+            r = requests.post(base + model, headers=headers, json={"prompt": prompt[:2000], "steps": 8}, timeout=180)
             if r.status_code == 200:
                 img_b64 = (r.json().get("result") or {}).get("image")
                 if img_b64:
                     return _cover(_decode(img_b64), w, h)
-            last = f"{model}: HTTP {r.status_code} {r.text[:200]}"
-            if _quota_error(r.text):
+            errs.append(f"{model.split('/')[-1]}: HTTP {r.status_code} {r.text[:160]}")
+            print(f"[images] {errs[-1]}", flush=True)
+            if _quota_error(r.text) or r.status_code in (401, 403, 429):
                 _disabled.add(model)
         except Exception as e:
-            last = f"{model}: {e}"
-    raise ImageError(last or "Cloudflare kullanılamıyor")
+            errs.append(f"{model.split('/')[-1]}: {e}")
+    if all(m in _disabled for m in CF_MULTIPART_MODELS + CF_JSON_MODELS) and not errs:
+        raise ImageError(QUOTA_MSG)
+    raise ImageError(" / ".join(errs) or "Cloudflare kullanılamıyor")
 
 
 def _pollinations(prompt, w, h, seed):
@@ -124,6 +136,8 @@ def _pollinations(prompt, w, h, seed):
                     return _cover(img.convert("RGB"), w, h)
                 last = f"HTTP {r.status_code} {r.text[:150]}"
                 if r.status_code in (401, 402, 403):
+                    if r.status_code == 402:
+                        _disabled.add("pollinations")  # free limit used up for now
                     break
             except Exception as e:
                 last = str(e)
@@ -143,4 +157,6 @@ def generate(prompt: str, width: int, height: int, seed: int = None) -> Image.Im
         except Exception as e:
             errors.append(f"{name}: {e}")
     stats["failed"] += 1
+    if quota_exhausted():
+        raise ImageError("Görsel üretilemedi → " + QUOTA_MSG)
     raise ImageError("Görsel üretilemedi → " + " | ".join(errors))
