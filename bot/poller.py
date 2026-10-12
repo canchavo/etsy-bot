@@ -193,6 +193,20 @@ def run(loop_seconds=0):
                 storage.commit_and_push("Telegram işlemleri")
         if time.time() >= deadline:
             break
+    n = telegram.conflicts()
+    print(f"[poll] çakışma sayısı: {n}", flush=True)
+    if n >= 3:
+        meta = storage.load_meta()
+        if meta.get("conflict_warned", 0) < time.time() - 6 * 3600:
+            meta["conflict_warned"] = int(time.time())
+            storage.save_meta(meta)
+            any_change = True
+            try:
+                telegram.send("⚠️ <b>Bu bota başka bir program da bağlı</b> (muhtemelen eski Abacus otomasyonu). "
+                              "Mesajlarınızı ve buton basışlarınızı o alıyor, bu yüzden ben cevap veremiyorum.\n\n"
+                              "Çözüm: Abacus'taki eski görevi/agent'ı durdurun veya silin.")
+            except Exception as e:
+                print(f"[poll] uyarı gönderilemedi: {e}")
     return any_change
 
 

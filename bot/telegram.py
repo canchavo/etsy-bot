@@ -88,10 +88,27 @@ def updates(offset, wait=0):
         return call("getUpdates", {"offset": offset, "timeout": int(wait),
                                    "allowed_updates": json.dumps(["message", "callback_query"])}, timeout=int(wait) + 30) or []
     except RuntimeError as e:
-        if "Conflict" in str(e):  # another getUpdates (e.g. the Cloudflare trigger peeking) - just retry later
-            time.sleep(2)
-            return []
-        raise
+        if "Conflict" not in str(e):
+            raise
+        print(f"[telegram] ÇAKIŞMA: {e}", flush=True)
+        _CONFLICTS[0] += 1
+        if "webhook" in str(e).lower():
+            # an old system (e.g. Abacus) registered a webhook and steals every message -> take the bot back
+            try:
+                info = call("getWebhookInfo")
+                print(f"[telegram] eski webhook: {info.get('url', '')[:60]}… kaldırılıyor", flush=True)
+                call("deleteWebhook", {"drop_pending_updates": "false"})
+            except Exception as e2:
+                print(f"[telegram] webhook kaldırılamadı: {e2}", flush=True)
+        time.sleep(3)
+        return []
+
+
+_CONFLICTS = [0]
+
+
+def conflicts():
+    return _CONFLICTS[0]
 
 
 def document(name, data, caption=""):
