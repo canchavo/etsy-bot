@@ -191,6 +191,15 @@ def _end_card(p, pal):
     return img
 
 
+def _ffmpeg():
+    """Bundled static ffmpeg (pip package imageio-ffmpeg); the system one may be missing."""
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return "ffmpeg"
+
+
 def video(p, photos, seconds_per=2.6, end=2.2, fade=0.45):
     pal = palette_colors(p.get("spec", {}).get("palette"))
     photos = [im.convert("RGB") for im in photos[:4]]
@@ -232,7 +241,7 @@ def video(p, photos, seconds_per=2.6, end=2.2, fade=0.45):
 
     with tempfile.TemporaryDirectory() as td:
         out = os.path.join(td, "v.mp4")
-        cmd = ["ffmpeg", "-y", "-loglevel", "error",
+        cmd = [_ffmpeg(), "-y", "-loglevel", "error",
                "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{VW}x{VH}", "-r", str(FPS), "-i", "-",
                "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
                "-shortest", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
