@@ -1,8 +1,10 @@
 """One-off maintenance: shorten long, keyword-stuffed titles of active Etsy listings
 (Etsy's 'make your titles clearer' recommendation)."""
 import html
+import json
+from pathlib import Path
 
-from . import etsy, research, storage, telegram
+from . import config, etsy, research, storage, telegram
 from .telegram import esc
 
 
@@ -17,7 +19,13 @@ def run(dry_run=False):
     if not todo:
         telegram.send("✅ Tüm ilan başlıkları zaten kısa ve net.")
         return []
-    new = research.short_titles(todo)
+    # titles prepared by hand (retitle_titles.json, {listing_id: title}) win; the rest come from the LLM
+    f = config.ROOT / "retitle_titles.json"
+    prepared = json.loads(f.read_text()) if f.exists() else {}
+    new = {i["id"]: prepared[i["id"]] for i in todo if i["id"] in prepared}
+    rest = [i for i in todo if i["id"] not in new]
+    if rest:
+        new.update(research.short_titles(rest))
     by_listing = {str(p.get("etsy", {}).get("listing_id")): p for p in storage.all_products() if p.get("etsy")}
     done, failed = [], []
     for item in todo:
