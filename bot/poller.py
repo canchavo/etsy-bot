@@ -13,6 +13,7 @@ HELP = """🤖 <b>Etsy Bot komutları</b>
 /uret – şimdi 1 ek ürün üret (/uret 2 → 2 ürün)
 /etsy – Etsy mağazanı bağla / yeniden bağla
 /kod &lt;adres&gt; – Etsy onayından sonra çıkan adresi gönder
+/sosyal – son yayınlanan ürün için Pinterest pini + video (/sosyal 3 → son 3 ürün, /sosyal &lt;id&gt; → o ürün)
 /panel – web panel adresi
 /yardim – bu mesaj"""
 
@@ -35,6 +36,21 @@ def publish_product(p: dict) -> str:
     storage.add_event(p, f"Etsy'de yayınlandı ({res['state']})")
     storage.save_product(p)
     return res
+
+
+def send_social(p: dict) -> bool:
+    """Pinterest pin + vertical video + captions for a published product, sent to Telegram."""
+    from . import social
+    try:
+        photos = [(n, assets.download(p["id"], "photo__" + n)) for n in p["photos"]]
+        social.send_pack(p, photos)
+        p["social_sent"] = int(time.time())
+        storage.save_product(p)
+        return True
+    except Exception as e:
+        traceback.print_exc()
+        telegram.send(f"⚠️ Sosyal medya paketi hazırlanamadı ({esc(p['id'])}): <code>{esc(str(e)[:300])}</code>")
+        return False
 
 
 def _handle_callback(cb, meta):
@@ -95,6 +111,7 @@ def _handle_callback(cb, meta):
             state_tr = "yayında" if res["state"] == "active" else "taslak olarak kaydedildi"
             telegram.edit(chat_id, mid, base_html + f"\n\n✅ <b>Etsy'de {state_tr}</b> – {res['price']} {res['currency']}",
                           [[("🔗 Etsy'de aç", res["url"])]])
+            send_social(storage.load_product(pid))
         except Exception as e:
             traceback.print_exc()
             p = storage.load_product(pid)
@@ -174,6 +191,19 @@ def _handle_message(m, meta):
             changed = True
         except Exception as e:
             telegram.send(f"⚠️ Etsy bağlanamadı: <code>{esc(str(e)[:500])}</code>\nKod birkaç dakikada geçersiz olabilir; /etsy ile tekrar deneyin.")
+    elif cmd == "/sosyal":
+        pub = [p for p in storage.all_products() if p["status"] == "published"]
+        pub.sort(key=lambda p: p.get("etsy", {}).get("published_at", 0))
+        a = arg.strip()
+        if a and not a.isdigit():
+            targets = [p for p in pub if p["id"] == a]
+        else:
+            targets = pub[-min(int(a or 1), 5):]
+        if not targets:
+            telegram.send("Yayınlanmış ürün bulunamadı. Ürün kodunu /bekleyen veya /durum ile görebilirsin.")
+        for p in targets:
+            telegram.send(f"🎬 <b>{esc(p['title'])}</b> için sosyal medya paketi hazırlanıyor (~1 dk)…")
+            changed |= send_social(p)
     elif cmd == "/panel":
         telegram.send(f"🌐 Panel: {config.pages_url() or 'henüz yok'}")
     return changed
