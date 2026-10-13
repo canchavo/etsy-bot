@@ -16,6 +16,13 @@ def run(dry_run=False):
         if research.title_problems(title):
             todo.append({"id": str(l["listing_id"]), "title": title, "tags": [html.unescape(t) for t in l.get("tags", [])]})
     print(f"[retitle] {len(listings)} aktif ilan, {len(todo)} tanesinin başlığı uzun/karışık")
+    # keep the bot's own records in sync with the titles that are live on Etsy
+    live = {str(l["listing_id"]): html.unescape(l.get("title", "")) for l in listings}
+    for p in storage.all_products():
+        lid = str(p.get("etsy", {}).get("listing_id"))
+        if lid in live and live[lid] and p.get("title") != live[lid] and lid not in {i["id"] for i in todo}:
+            p["title"] = live[lid]
+            storage.save_product(p)
     if not todo:
         telegram.send("✅ Tüm ilan başlıkları zaten kısa ve net.")
         return []
@@ -53,7 +60,20 @@ def run(dry_run=False):
         lines.append(f"• <s>{esc(item['title'][:70])}</s>\n   → <b>{esc(t)}</b>")
     for item, err in failed[:10]:
         lines.append(f"⚠️ {esc(item['title'][:60])}: {esc(err)}")
-    msg = "\n".join(lines)
-    for i in range(0, len(msg), 3900):
-        telegram.send(msg[i:i + 3900])
+    # send in chunks of whole lines so HTML tags are never cut in half
+    chunk = ""
+    for line in lines:
+        if len(chunk) + len(line) > 3800:
+            _safe_send(chunk)
+            chunk = ""
+        chunk += line + "\n"
+    if chunk:
+        _safe_send(chunk)
     return done
+
+
+def _safe_send(text):
+    try:
+        telegram.send(text)
+    except Exception as e:
+        print(f"[retitle] Telegram raporu gönderilemedi: {e}")
