@@ -303,3 +303,22 @@ def publish(p: dict, delivery: list, photos: list, build_meta: dict, mode="activ
         state = "active"
     return {"listing_id": lid, "url": f"https://www.etsy.com/listing/{lid}", "state": state, "price": price,
             "currency": tok.get("currency", "USD")}
+
+
+# ---------------- maintenance ----------------
+
+def shop_listings(state="active") -> list:
+    tok = token()
+    out, offset = [], 0
+    while True:
+        res = _req("GET", f"/shops/{tok['shop_id']}/listings", tok,
+                   params={"state": state, "limit": 100, "offset": offset})
+        out += res.get("results", [])
+        offset += 100
+        if offset >= res.get("count", 0) or not res.get("results"):
+            return out
+
+
+def update_title(listing_id, title: str) -> dict:
+    tok = token()
+    return _req("PATCH", f"/shops/{tok['shop_id']}/listings/{listing_id}", tok, json={"title": title})

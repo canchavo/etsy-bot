@@ -117,8 +117,28 @@ def pick_niches(n: int, used: list, today=None) -> list:
     return chosen, reserve
 
 
+# Etsy's 2025 guidance: short, clear titles a buyer understands at a glance; keywords belong in the tags
+TITLE_RULE = ("short clear Etsy title a buyer understands at a glance: 5-12 words and max 90 characters, "
+              "says exactly what the item is with the main search phrase first, at most one ' - ' or ', ' separator, "
+              "no keyword lists, no repeated words, no words already covered only by tags, no ALL CAPS, English")
+
+
+def title_problems(title: str) -> list:
+    t = (title or "").strip()
+    probs = []
+    words = t.split()
+    if len(words) > 13 or len(t) > 100:
+        probs.append(f"title too long ({len(words)} words, {len(t)} chars) - use 5-12 words, max 90 characters")
+    if t.count(",") + t.count("|") + t.count(" - ") > 1:
+        probs.append("title has a keyword list - use at most one separator")
+    low = [w.strip(",|-").lower() for w in words if len(w) > 3]
+    if len(low) != len(set(low)):
+        probs.append("title repeats words")
+    return probs
+
+
 SPEC_COMMON = """
-  "title": "Etsy title, max 140 characters, starts with the main search phrase buyers use, natural (not keyword-stuffed), uses ' | ' or ', ' separators, English",
+  "title": "TITLE_RULE",
   "intro": "2 short persuasive paragraphs (English) describing the product, style and who it is for; no file details, no emojis, no trademarks",
   "tags": [13 Etsy tags, each max 20 characters, multi-word phrases buyers search, no repeats of the same word only, English],
   "price_usd": number,
@@ -142,7 +162,7 @@ All text in English. Image prompts must describe ORIGINAL artwork only.
 
 Return JSON with these fields:
 {{
-{SPEC_COMMON}{mod.SPEC_FIELDS}
+{SPEC_COMMON.replace("TITLE_RULE", TITLE_RULE)}{mod.SPEC_FIELDS}
 }}"""
     for attempt in range(3):
         spec = llm.ask_json(prompt, temperature=0.9)
@@ -164,8 +184,7 @@ def _validate(spec, ptype):
     for f in ("title", "intro", "tags", "price_usd", "style"):
         if not spec.get(f):
             probs.append(f"missing {f}")
-    if spec.get("title") and len(spec["title"]) > 140:
-        spec["title"] = spec["title"][:140].rsplit(" ", 1)[0].rstrip(",|- ")
+    probs += title_problems(spec.get("title", "")) if spec.get("title") else []
     if is_banned(spec.get("title", "")) or any(is_banned(t) for t in spec.get("tags", [])):
         probs.append("contains a banned/trademark word (remove words like prompt, svg, brand names)")
     f, n = _LIST_FIELD[ptype]
@@ -189,3 +208,33 @@ def _validate(spec, ptype):
 def slugify(text, n=40):
     s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
     return s[:n].strip("-") or "digital-product"
+
+
+def short_titles(items: list) -> dict:
+    """items: [{"id", "title", "tags"}] -> {id: new short title} (only valid ones)."""
+    out = {}
+    for start in range(0, len(items), 8):
+        batch = items[start:start + 8]
+        lines = "\n".join(f'- id {i["id"]}: "{i["title"]}" (tags: {", ".join(i.get("tags", [])[:13])})' for i in batch)
+        prompt = f"""Rewrite these Etsy listing titles for digital download products.
+Each new title must be a {TITLE_RULE}.
+Keep the meaning and the main product type (e.g. 'wall art set', 'clipart', 'digital paper', 'coloring pages', 'tumbler wrap', 'printable').
+Do not invent features, do not add brand names or trademarks.
+
+{lines}
+
+Return JSON: {{"titles": [{{"id": <id>, "title": "<new title>"}}]}}"""
+        for attempt in range(3):
+            res = llm.ask_json(prompt, temperature=0.4)
+            bad = []
+            for r in res.get("titles", []):
+                rid, t = str(r.get("id")), (r.get("title") or "").strip().strip('"')
+                if rid in {str(i["id"]) for i in batch} and t and not title_problems(t) and not is_banned(t):
+                    out[rid] = t
+                elif rid in {str(i["id"]) for i in batch}:
+                    bad.append(rid)
+            missing = [str(i["id"]) for i in batch if str(i["id"]) not in out]
+            if not missing:
+                break
+            prompt += f"\n\nThese ids were missing or invalid, try again shorter: {missing}"
+    return out
