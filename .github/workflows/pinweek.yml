@@ -6,6 +6,10 @@ on:
         description: "Kaç pin (boş = ayarlardaki sayı, 21)"
         required: false
         default: ""
+      fresh:
+        description: "Bu haftanın dosyasını baştan oluştur"
+        type: boolean
+        default: false
 concurrency:
   group: pinweek
   cancel-in-progress: false
@@ -40,7 +44,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python -m bot pinweek ${{ inputs.count && format('--count {0}', inputs.count) || '' }}
+      - run: python -m bot pinweek ${{ inputs.count && format('--count {0}', inputs.count) || '' }} ${{ inputs.fresh && '--fresh' || '' }}
       - name: Paneli hazırla
         run: |
           git pull --rebase -X theirs || true
