@@ -98,6 +98,14 @@ def save_etsy(t: dict) -> None:
     _write(config.STATE_DIR / "etsy.enc", t)
 
 
+def load_pinterest() -> dict:
+    return _read(config.STATE_DIR / "pinterest.enc", {}) or {}
+
+
+def save_pinterest(t: dict) -> None:
+    _write(config.STATE_DIR / "pinterest.enc", t)
+
+
 # ---------------- git ----------------
 
 def _git(*args, check=True):

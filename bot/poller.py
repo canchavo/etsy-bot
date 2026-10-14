@@ -12,7 +12,8 @@ HELP = """🤖 <b>Etsy Bot komutları</b>
 /bekleyen – onay bekleyen ürünleri tekrar gönder
 /uret – şimdi 1 ek ürün üret (/uret 2 → 2 ürün)
 /etsy – Etsy mağazanı bağla / yeniden bağla
-/kod &lt;adres&gt; – Etsy onayından sonra çıkan adresi gönder
+/pinterest – Pinterest hesabını bağla (otomatik pin)
+/kod &lt;adres&gt; – Etsy/Pinterest onayından sonra çıkan adresi gönder
 /sosyal – son yayınlanan ürün için Pinterest pini + video (/sosyal 3 → son 3 ürün, /sosyal &lt;id&gt; → o ürün)
 /panel – web panel adresi
 /yardim – bu mesaj"""
@@ -38,14 +39,32 @@ def publish_product(p: dict) -> str:
     return res
 
 
+def _auto_pin(p: dict, pack: dict):
+    """Publish the pin on Pinterest automatically when the account is connected."""
+    from . import pinterest
+    if not (pinterest.configured() and pinterest.connected()) or p.get("pinterest"):
+        return
+    try:
+        res = pinterest.create_pin(p["type"], pack["pin"], pack["pin_title"], pack["pin_desc"], pack["link"], p["title"])
+        p["pinterest"] = {**res, "at": int(time.time())}
+        storage.add_event(p, "Pinterest'e pinlendi")
+        storage.save_product(p)
+        note = storage.load_meta().get("pinterest_note", "")
+        telegram.send(f"📌 <b>Pinterest'e otomatik pinlendi</b>\n{esc(res['url'])}{note}")
+    except Exception as e:
+        traceback.print_exc()
+        telegram.send(f"⚠️ Pinterest'e pinlenemedi: <code>{esc(str(e)[:300])}</code>")
+
+
 def send_social(p: dict) -> bool:
     """Pinterest pin + vertical video + captions for a published product, sent to Telegram."""
     from . import social
     try:
         photos = [(n, assets.download(p["id"], "photo__" + n)) for n in p["photos"]]
-        social.send_pack(p, photos)
+        pack = social.send_pack(p, photos)
         p["social_sent"] = int(time.time())
         storage.save_product(p)
+        _auto_pin(p, pack)
         return True
     except Exception as e:
         traceback.print_exc()
@@ -184,6 +203,24 @@ def _handle_message(m, meta):
                 [[("Etsy'de izin ver", url)]])
         except Exception as e:
             telegram.send(f"⚠️ {esc(str(e))}")
+    elif cmd == "/pinterest":
+        from . import pinterest
+        try:
+            url = pinterest.auth_url()
+            telegram.send("📌 <b>Pinterest bağlantısı</b>\n\n1) Butona basıp <b>İzin ver</b> deyin.\n"
+                          "2) Açılan sayfadaki <b>kopyala</b> butonuyla adresi kopyalayın.\n"
+                          "3) Buraya <code>/kod </code> yazıp yapıştırın.", [[("Pinterest'e izin ver", url)]])
+        except Exception as e:
+            telegram.send(f"⚠️ {esc(str(e))}")
+    elif cmd == "/kod" and "state=pin" in arg:
+        from . import pinterest
+        try:
+            tok = pinterest.exchange(arg)
+            telegram.send(f"🟢 Pinterest bağlandı: <b>@{esc(tok.get('username') or '?')}</b>\n"
+                          "Bundan sonra yayınlanan her ürün otomatik pinlenecek.")
+            changed = True
+        except Exception as e:
+            telegram.send(f"⚠️ Pinterest bağlanamadı: <code>{esc(str(e)[:500])}</code>\n/pinterest ile tekrar deneyin.")
     elif cmd == "/kod":
         try:
             tok = etsy.exchange(arg)
@@ -307,6 +344,12 @@ def _run_once(wait=0):
         return changed
     meta["last_keepalive"] = int(time.time())
     storage.save_meta(meta)
+    try:
+        from . import pinterest
+        if pinterest.configured() and pinterest.keepalive():
+            changed = True
+    except Exception as e:
+        print(f"[poll] Pinterest oturum yenileme: {e}")
     try:
         if etsy.keepalive():
             changed = True
