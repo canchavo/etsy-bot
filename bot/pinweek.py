@@ -137,21 +137,45 @@ def build(n_pins=None, fresh=False):
 
 
 def notify():
-    """Send the CSV + instructions to Telegram (run after the Pages deploy finished)."""
-    meta = storage.load_meta().get("pinweek", {})
+    """After a new week's pins are built: short note (pins arrive in Telegram 3 a day)."""
+    meta = storage.load_meta()
+    pw = meta.get("pinweek", {})
+    meta["pin_cursor"] = 0
+    storage.save_meta(meta)
+    telegram.send(f"📌 <b>Bu haftanın {pw.get('rows', '?')} Pinterest pini hazır.</b>\n"
+                  "Her gün 17:00'de 3 tanesi buraya hazır gelecek: görseli kaydet, başlık/açıklama/linki yapıştır, "
+                  "panoyu seç, yayınla. Hemen istersen /pin yaz.")
+
+
+def send_daily(n=3):
+    """Send the next n pins of this week's list to Telegram, ready to post by hand."""
     f = PINS_DIR / "latest.csv"
     if not f.exists():
-        raise RuntimeError("Pin dosyası bulunamadı.")
-    boards = "\n".join(f"• <code>{esc(b)}</code>" for b in dict.fromkeys(BOARDS.values()))
-    telegram.document(f"pinterest-pinler-{meta.get('week', 'hafta')}.csv", f.read_bytes(),
-                      f"📌 <b>Bu haftanın Pinterest pinleri</b>: {meta.get('rows', '?')} pin\n"
-                      f"{esc(meta.get('first', '')[:10])} → {esc(meta.get('last', '')[:10])} arası kendiliğinden yayınlanacak.")
-    telegram.send(
-        "📥 <b>Yükleme (1 dk, bilgisayardan):</b>\n"
-        "1) pinterest.com → <b>Oluştur</b> → <b>Toplu Pin oluştur</b> (Create → Bulk create Pins)\n"
-        "2) <b>.csv yükle</b> deyip bu dosyayı seç → Yükle\n"
-        "3) Pinler 'Planlanan Pinler' bölümüne düşer, tarihleri gelince yayınlanır.\n\n"
-        f"Panolar bu adlarla hesapta olmalı:\n{boards}")
+        raise RuntimeError("Bu haftanın pin listesi yok, /pinler ile oluşturun.")
+    rows = list(csv.DictReader(io.StringIO(f.read_text(encoding="utf-8"))))
+    meta = storage.load_meta()
+    cur = int(meta.get("pin_cursor", 0))
+    batch = rows[cur:cur + n]
+    if not batch:
+        telegram.send("📌 Bu haftanın pinleri bitti. Pazartesi yenileri gelecek (hemen istersen /pinler).")
+        return 0
+    for k, r in enumerate(batch, cur + 1):
+        img = PINS_DIR / r["Media URL"].rsplit("/", 1)[-1]
+        cap = (f"📌 <b>Pin {k}/{len(rows)}</b>  •  Pano: <b>{esc(r['Pinterest board'])}</b>\n\n"
+               f"<b>Başlık:</b>\n<code>{esc(r['Title'])}</code>\n\n"
+               f"<b>Açıklama:</b>\n<code>{esc(r['Description'][:600])}</code>\n\n"
+               f"<b>Bağlantı:</b>\n<code>{esc(r['Link'])}</code>")[:1024]
+        if img.exists():
+            telegram.call("sendPhoto", {"chat_id": config.TELEGRAM_CHAT_ID, "caption": cap, "parse_mode": "HTML"},
+                          files={"photo": (img.name, img.read_bytes(), "image/jpeg")}, timeout=120)
+        else:
+            telegram.send(cap + f"\n\nGörsel: {esc(r['Media URL'])}")
+    meta["pin_cursor"] = cur + len(batch)
+    storage.save_meta(meta)
+    left = len(rows) - meta["pin_cursor"]
+    telegram.send("👆 Pinterest'te: <b>Oluştur → Pin oluşturun</b> → görseli yükle → kutulara yapıştır → panoyu seç → Yayınla."
+                  + (f"\n({left} pin bu hafta sırada)" if left else ""))
+    return len(batch)
 
 
 def run(n_pins=None, fresh=False):

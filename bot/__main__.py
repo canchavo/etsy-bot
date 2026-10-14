@@ -109,6 +109,7 @@ def cmd_pinweek(a):
     from . import pinweek
     if a.notify:
         pinweek.notify()
+        storage.commit_and_push("Pin listesi hazır")
         return
     try:
         pinweek.run(a.count, fresh=a.fresh)

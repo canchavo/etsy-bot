@@ -15,7 +15,8 @@ HELP = """🤖 <b>Etsy Bot komutları</b>
 /pinterest – Pinterest hesabını bağla (otomatik pin)
 /kod &lt;adres&gt; – Etsy/Pinterest onayından sonra çıkan adresi gönder
 /sosyal – son yayınlanan ürün için Pinterest pini + video (/sosyal 3 → son 3 ürün, /sosyal &lt;id&gt; → o ürün)
-/pinler – bu haftanın Pinterest toplu yükleme dosyasını hazırla (her pazartesi otomatik)
+/pin – sıradaki 3 Pinterest pinini hemen gönder (her gün 17:00'de otomatik)
+/pinler – yeni haftanın pin listesini hazırla (her pazartesi otomatik)
 /panel – web panel adresi
 /yardim – bu mesaj"""
 
@@ -242,11 +243,19 @@ def _handle_message(m, meta):
         for p in targets:
             telegram.send(f"🎬 <b>{esc(p['title'])}</b> için sosyal medya paketi hazırlanıyor (~1 dk)…")
             changed |= send_social(p)
+    elif cmd == "/pin":
+        from . import pinweek
+        try:
+            n = int(arg) if arg.strip().isdigit() else 3
+            pinweek.send_daily(min(n, 10))
+            changed = True
+        except Exception as e:
+            telegram.send(f"⚠️ <code>{esc(str(e))}</code>")
     elif cmd == "/pinler":
         try:
             n = int(arg) if arg.strip().isdigit() else None
             _dispatch("pinweek.yml", {"count": str(n)} if n else {})
-            telegram.send("📌 Haftalık Pinterest dosyası hazırlanıyor. Örnek pinler ~3 dk, yükleme dosyası ~5 dk içinde gelecek.")
+            telegram.send("📌 Yeni haftanın pin listesi hazırlanıyor (~5 dk).")
         except Exception as e:
             telegram.send(f"⚠️ Başlatılamadı: <code>{esc(str(e))}</code>")
     elif cmd == "/panel":
@@ -314,6 +323,29 @@ def _maybe_start_pinweek():
     return True
 
 
+PINS_AT = 17  # local hour the day's ready-to-post pins are sent
+
+
+def _maybe_send_pins():
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    now = dt.datetime.now(ZoneInfo(config.settings()["timezone"]))
+    if now.hour < PINS_AT:
+        return False
+    today = now.date().isoformat()
+    meta = storage.load_meta()
+    if meta.get("pins_sent_day") == today:
+        return False
+    meta["pins_sent_day"] = today
+    storage.save_meta(meta)
+    try:
+        from . import pinweek
+        pinweek.send_daily()
+    except Exception as e:
+        print(f"[poll] günlük pinler gönderilemedi: {e}", flush=True)
+    return True
+
+
 def run(loop_seconds=0):
     """Process Telegram updates. With loop_seconds>0 keep long-polling so buttons react
     within seconds; state is pushed to git after every batch of changes."""
@@ -324,6 +356,8 @@ def run(loop_seconds=0):
             if _maybe_start_daily():
                 any_change = True
             if _maybe_start_pinweek():
+                any_change = True
+            if _maybe_send_pins():
                 any_change = True
                 storage.commit_and_push("Günlük üretim başlatıldı")
         except Exception as e:
