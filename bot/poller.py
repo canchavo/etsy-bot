@@ -15,6 +15,7 @@ HELP = """🤖 <b>Etsy Bot komutları</b>
 /pinterest – Pinterest hesabını bağla (otomatik pin)
 /kod &lt;adres&gt; – Etsy/Pinterest onayından sonra çıkan adresi gönder
 /sosyal – son yayınlanan ürün için Pinterest pini + video (/sosyal 3 → son 3 ürün, /sosyal &lt;id&gt; → o ürün)
+/pinler – bu haftanın Pinterest toplu yükleme dosyasını hazırla (her pazartesi otomatik)
 /panel – web panel adresi
 /yardim – bu mesaj"""
 
@@ -241,6 +242,13 @@ def _handle_message(m, meta):
         for p in targets:
             telegram.send(f"🎬 <b>{esc(p['title'])}</b> için sosyal medya paketi hazırlanıyor (~1 dk)…")
             changed |= send_social(p)
+    elif cmd == "/pinler":
+        try:
+            n = int(arg) if arg.strip().isdigit() else None
+            _dispatch("pinweek.yml", {"count": str(n)} if n else {})
+            telegram.send("📌 Haftalık Pinterest dosyası hazırlanıyor. Örnek pinler ~3 dk, yükleme dosyası ~5 dk içinde gelecek.")
+        except Exception as e:
+            telegram.send(f"⚠️ Başlatılamadı: <code>{esc(str(e))}</code>")
     elif cmd == "/panel":
         telegram.send(f"🌐 Panel: {config.pages_url() or 'henüz yok'}")
     return changed
@@ -276,6 +284,36 @@ def _maybe_start_daily():
     return True
 
 
+def _dispatch(workflow, inputs=None):
+    r = requests.post(
+        f"https://api.github.com/repos/{config.GITHUB_REPOSITORY}/actions/workflows/{workflow}/dispatches",
+        headers={"Authorization": f"Bearer {config.GITHUB_TOKEN}", "Accept": "application/vnd.github+json"},
+        json={"ref": config.env("GITHUB_REF_NAME", "main"), "inputs": inputs or {}}, timeout=30)
+    if r.status_code >= 300:
+        raise RuntimeError(f"HTTP {r.status_code} {r.text[:200]}")
+
+
+def _maybe_start_pinweek():
+    """Every Monday after 10:00 (Turkey time) prepare the week's Pinterest bulk file."""
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    now = dt.datetime.now(ZoneInfo(config.settings()["timezone"]))
+    if now.weekday() != 0 or now.hour < 10:
+        return False
+    week = now.strftime("%G-W%V")
+    meta = storage.load_meta()
+    if meta.get("pinweek_started") == week:
+        return False
+    try:
+        _dispatch("pinweek.yml")
+    except Exception as e:
+        print(f"[poll] pin haftası başlatılamadı: {e}", flush=True)
+        return False
+    meta["pinweek_started"] = week
+    storage.save_meta(meta)
+    return True
+
+
 def run(loop_seconds=0):
     """Process Telegram updates. With loop_seconds>0 keep long-polling so buttons react
     within seconds; state is pushed to git after every batch of changes."""
@@ -284,6 +322,8 @@ def run(loop_seconds=0):
     if loop_seconds:
         try:
             if _maybe_start_daily():
+                any_change = True
+            if _maybe_start_pinweek():
                 any_change = True
                 storage.commit_and_push("Günlük üretim başlatıldı")
         except Exception as e:

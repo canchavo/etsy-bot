@@ -112,15 +112,15 @@ def _git(*args, check=True):
     return subprocess.run(["git", *args], cwd=config.ROOT, capture_output=True, text=True, check=check)
 
 
-def commit_and_push(message: str) -> bool:
-    """Commit state/ and push, retrying with rebase if another run pushed first."""
+def commit_and_push(message: str, extra_paths=()) -> bool:
+    """Commit state/ (and extra_paths) and push, retrying with rebase if another run pushed first."""
     if not config.GITHUB_REPOSITORY:
         return False  # local run
     _git("config", "user.name", "etsy-bot")
     _git("config", "user.email", "etsy-bot@users.noreply.github.com")
     if not config.STATE_DIR.exists():
         return False
-    _git("add", "-A", "state")
+    _git("add", "-A", "state", *extra_paths)
     if _git("diff", "--cached", "--quiet", check=False).returncode == 0:
         return False
     _git("commit", "-m", message)

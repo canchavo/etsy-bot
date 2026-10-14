@@ -105,6 +105,17 @@ def cmd_retitle(a):
     storage.commit_and_push("İlan başlıkları kısaltıldı")
 
 
+def cmd_pinweek(a):
+    from . import pinweek
+    if a.notify:
+        pinweek.notify()
+        return
+    try:
+        pinweek.run(a.count)
+    finally:
+        storage.commit_and_push("Haftalık Pinterest pinleri", extra_paths=("panel/pins",))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="bot")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -119,17 +130,20 @@ def main(argv=None):
     p = sub.add_parser("panel")
     p.add_argument("--out", default="_site")
     sub.add_parser("import-abacus")
+    pw = sub.add_parser("pinweek")
+    pw.add_argument("--count", type=int, default=None)
+    pw.add_argument("--notify", action="store_true")
     r = sub.add_parser("retitle")
     r.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     fn = {"generate": cmd_generate, "poll": cmd_poll, "etsy-connect": cmd_etsy_connect, "selftest": cmd_selftest,
           "panel": cmd_panel, "import-abacus": cmd_import_abacus,
-          "retitle": cmd_retitle}[a.cmd]
+          "retitle": cmd_retitle, "pinweek": cmd_pinweek}[a.cmd]
     try:
         fn(a)
     except Exception as e:
         traceback.print_exc()
-        if a.cmd in ("generate", "etsy-connect", "import-abacus", "retitle"):
+        if a.cmd in ("generate", "etsy-connect", "import-abacus", "retitle", "pinweek"):
             try:
                 telegram.send(f"⚠️ <b>{a.cmd}</b> hata verdi: <code>{esc(str(e)[:600])}</code>\n{config.GITHUB_RUN_URL}")
             except Exception:
