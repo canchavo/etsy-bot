@@ -81,6 +81,8 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main  # the build job pushed the CSV after this run started
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
