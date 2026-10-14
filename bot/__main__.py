@@ -111,7 +111,7 @@ def cmd_pinweek(a):
         pinweek.notify()
         return
     try:
-        pinweek.run(a.count)
+        pinweek.run(a.count, fresh=a.fresh)
     finally:
         storage.commit_and_push("Haftalık Pinterest pinleri", extra_paths=("panel/pins",))
 
@@ -133,6 +133,7 @@ def main(argv=None):
     pw = sub.add_parser("pinweek")
     pw.add_argument("--count", type=int, default=None)
     pw.add_argument("--notify", action="store_true")
+    pw.add_argument("--fresh", action="store_true")
     r = sub.add_parser("retitle")
     r.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)

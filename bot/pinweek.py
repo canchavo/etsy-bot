@@ -61,8 +61,35 @@ def _prune():
             f.unlink()
 
 
-def build(n_pins=None):
+def sync_titles():
+    """Use the titles that are live on Etsy (they may have been edited there)."""
+    import html
+    from . import etsy
+    try:
+        live = {str(l["listing_id"]): html.unescape(l.get("title", "")) for l in etsy.shop_listings("active")}
+    except Exception as e:
+        print(f"[pinweek] Etsy başlıkları alınamadı: {e}")
+        return 0
+    n = 0
+    for p in storage.all_products():
+        t = live.get(str(p.get("etsy", {}).get("listing_id")))
+        if t and p.get("title") != t:
+            p["title"] = t
+            storage.save_product(p)
+            n += 1
+    print(f"[pinweek] {n} ürün başlığı Etsy ile eşitlendi")
+    return n
+
+
+def build(n_pins=None, fresh=False):
     s = config.settings()
+    sync_titles()
+    if fresh:  # rebuild the last file from scratch: forget the dates it scheduled
+        first = (storage.load_meta().get("pinweek", {}).get("first") or "9999")[:10]
+        for p in storage.all_products():
+            if p.get("pin_history"):
+                p["pin_history"] = [d for d in p["pin_history"] if d < first]
+                storage.save_product(p)
     n = int(n_pins or s.get("pins_per_week", 21))
     products = pick_products(n)
     if not products:
@@ -127,8 +154,8 @@ def notify():
         f"Panolar bu adlarla hesapta olmalı:\n{boards}")
 
 
-def run(n_pins=None):
-    rows, _, previews = build(n_pins)
+def run(n_pins=None, fresh=False):
+    rows, _, previews = build(n_pins, fresh)
     print(f"[pinweek] {len(rows)} pin hazırlandı")
     try:
         telegram.album([(n, _jpg_small(b)) for n, b in previews],
