@@ -15,6 +15,7 @@ from .imgutil import fit_text, font, wrap_text
 from .mockups import _mix, palette_colors
 
 SHOP_NAME = "NuviraStudioDigital"
+HANDLE = "@nuvirastudiodigital"  # same handle on Pinterest and TikTok
 FPS = 30
 
 HOOKS = {
@@ -131,12 +132,14 @@ def texts(p, link):
     main, sub = _split_title(p["title"])
     intro = re.split(r"(?<=[.!?])\s", (p.get("spec", {}).get("intro") or "").strip())[0][:240]
     kw = ", ".join(t for t in p.get("tags", [])[:8])
-    pin_desc = f"{intro} Instant digital download from {SHOP_NAME} on Etsy. {kw}".strip()[:480]
+    tail = f" More designs on TikTok {HANDLE}"
+    pin_desc = (f"{intro} Instant digital download from {SHOP_NAME} on Etsy. {kw}"[:480 - len(tail)].rstrip(", ") + "." + tail).strip()
     caption = "\n".join([
         f"{HOOKS.get(p['type'], 'New in the shop')} ✨",
         "",
         p["title"],
         "Instant digital download 📥  Link in bio → " + SHOP_NAME + " on Etsy",
+        f"📌 More on Pinterest: {HANDLE}",
         "",
         " ".join(_hashtags(p)),
     ])
