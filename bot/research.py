@@ -43,6 +43,38 @@ def season_hint(today: dt.date) -> str:
     return ", ".join(dict.fromkeys(upcoming))
 
 
+def winners(max_n=5) -> list:
+    """Best-selling listings of our own shop (refreshed once a day, cached in meta)."""
+    import time
+    from . import storage
+    meta = storage.load_meta()
+    cache = meta.get("winners", {})
+    if time.time() - cache.get("at", 0) > 20 * 3600:
+        try:
+            sold = etsy.sold_listings()
+            cache = {"at": int(time.time()), "items": sorted(sold.values(), key=lambda x: -x["sales"])[:max_n]}
+            meta["winners"] = cache
+            storage.save_meta(meta)
+        except Exception as e:
+            print(f"[research] satış verisi alınamadı: {e}")
+    return cache.get("items", [])
+
+
+def _winner_block(win, n_ideas):
+    if not win:
+        return ""
+    lines = "\n".join(f'- "{w["title"]}" ({w["sales"]} sale{"s" if w["sales"] > 1 else ""})' for w in win)
+    k = max(1, n_ideas // 3)
+    return f"""
+PROVEN BEST SELLERS in our own shop (real buyers paid for these):
+{lines}
+Make about {k} of the ideas CLOSE VARIATIONS of these best sellers: same buyer, same room/use and product type,
+but a clearly different theme, region, season, colorway or art style (e.g. a best-selling "vintage Italian kitchen
+wall art" -> "vintage French bistro kitchen prints", "Greek island kitchen wall art", "lemon & olive Mediterranean
+kitchen prints"). Never copy the original. For these ideas add "variation_of": "<best seller title>".
+"""
+
+
 def _candidates(n_ideas, used, today):
     types_desc = "\n".join(f'- "{k}": {m.LABEL_TR}' for k, m in TYPES.items() if k in config.settings()["product_types"])
     prompt = f"""You are an expert Etsy digital-products researcher.
@@ -59,8 +91,8 @@ Rules:
 - The artwork is AI generated and CANNOT contain readable text: never propose quotes, sayings, typography, lettering, names, monograms, calendars or anything that depends on words. Focus on illustration, painting, pattern and character based designs.
 - Avoid these niches we already used recently: {', '.join(used) or 'none'}.
 - Mix product types.
-
-Return JSON: {{"ideas": [{{"niche": "...", "type": "one of {list(TYPES)}", "search_query": "2-4 words a buyer types into Etsy search", "why": "short reason"}}]}}"""
+{_winner_block(winners(), n_ideas)}
+Return JSON: {{"ideas": [{{"niche": "...", "type": "one of {list(TYPES)}", "search_query": "2-4 words a buyer types into Etsy search", "why": "short reason", "variation_of": "optional"}}]}}"""
     data = llm.ask_json(prompt, temperature=1.0)
     ideas = data.get("ideas", data if isinstance(data, list) else [])
     out = []
@@ -113,6 +145,10 @@ def pick_niches(n: int, used: list, today=None) -> list:
         per_type[t] = per_type.get(t, 0) + 1
         if len(chosen) >= n:
             break
+    # make sure one product a day builds on a proven best seller (when we have one)
+    variations = [i for i in scored if i.get("variation_of") and i.get("type") in weights]
+    if variations and chosen and not any(i.get("variation_of") for i in chosen):
+        chosen[-1] = variations[0]
     reserve = [i for i in scored if i not in chosen]
     return chosen, reserve
 

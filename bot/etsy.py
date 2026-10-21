@@ -322,3 +322,16 @@ def shop_listings(state="active") -> list:
 def update_title(listing_id, title: str) -> dict:
     tok = token()
     return _req("PATCH", f"/shops/{tok['shop_id']}/listings/{listing_id}", tok, json={"title": title})
+
+
+def sold_listings(limit=100) -> dict:
+    """{listing_id: {"title", "sales"}} from the shop's recent transactions."""
+    import html
+    tok = token()
+    res = _req("GET", f"/shops/{tok['shop_id']}/transactions", tok, params={"limit": limit})
+    out = {}
+    for t in res.get("results", []):
+        lid = str(t.get("listing_id"))
+        e = out.setdefault(lid, {"title": html.unescape(t.get("title") or ""), "sales": 0})
+        e["sales"] += int(t.get("quantity") or 1)
+    return out

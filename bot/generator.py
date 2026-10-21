@@ -61,6 +61,8 @@ def product_caption(p: dict) -> str:
     if p.get("research", {}).get("etsy_results") is not None:
         r = p["research"]
         lines.append(f"📊 Etsy: {r['etsy_results']:,} rakip ilan, ilk 25'te ortanca {int(r.get('etsy_median_favs', 0))} favori")
+    if p.get("research", {}).get("variation_of"):
+        lines.append(f"🏆 Çok satan ürünün varyasyonu: {esc(p['research']['variation_of'][:80])}")
     lines.append(f"🏷 {esc(', '.join(p['tags']))}")
     files = "\n".join(f"  • <code>{esc(f['name'])}</code> ({f['size'] / 1048576:.1f} MB)" for f in p["files"])
     lines.append(f"📁 Teslimat dosyaları:\n{files}")
@@ -87,7 +89,7 @@ def build_one(idea: dict, day: dt.date) -> dict:
         "status": "pending",
         "type": idea["type"],
         "niche": idea["niche"],
-        "research": {k: idea.get(k) for k in ("search_query", "why", "etsy_results", "etsy_median_favs", "score")},
+        "research": {k: idea.get(k) for k in ("search_query", "why", "etsy_results", "etsy_median_favs", "score", "variation_of")},
         "title": spec["title"],
         "description": compose_description(spec, built),
         "tags": spec["tags"],
