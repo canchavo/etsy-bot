@@ -117,6 +117,11 @@ def cmd_pinweek(a):
         storage.commit_and_push("Haftalık Pinterest pinleri", extra_paths=("panel/pins",))
 
 
+def cmd_inspect(a):
+    from . import inspect_files
+    inspect_files.run(a.query)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="bot")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -135,12 +140,15 @@ def main(argv=None):
     pw.add_argument("--count", type=int, default=None)
     pw.add_argument("--notify", action="store_true")
     pw.add_argument("--fresh", action="store_true")
+    ins = sub.add_parser("inspect")
+    ins.add_argument("query")
     r = sub.add_parser("retitle")
     r.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     fn = {"generate": cmd_generate, "poll": cmd_poll, "etsy-connect": cmd_etsy_connect, "selftest": cmd_selftest,
           "panel": cmd_panel, "import-abacus": cmd_import_abacus,
-          "retitle": cmd_retitle, "pinweek": cmd_pinweek}[a.cmd]
+          "retitle": cmd_retitle, "pinweek": cmd_pinweek,
+          "inspect": cmd_inspect}[a.cmd]
     try:
         fn(a)
     except Exception as e:
