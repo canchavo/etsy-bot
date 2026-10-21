@@ -1,14 +1,35 @@
 {
-  "products_per_day": 4,
+  "products_per_day": 3,
   "publish_mode": "active",
-  "product_types": {"wall_art": 3, "coloring": 2, "clipart": 2, "pattern": 2, "tumbler": 1},
+  "product_types": {
+    "wall_art": 3,
+    "coloring": 2,
+    "clipart": 2,
+    "pattern": 2,
+    "tumbler": 1
+  },
   "max_same_type_per_day": 2,
   "price_ranges_usd": {
-    "wall_art": [4.5, 9.0],
-    "coloring": [3.5, 6.5],
-    "clipart": [3.5, 6.5],
-    "pattern": [3.0, 5.5],
-    "tumbler": [2.5, 4.5]
+    "wall_art": [
+      4.5,
+      9.0
+    ],
+    "coloring": [
+      3.5,
+      6.5
+    ],
+    "clipart": [
+      3.5,
+      6.5
+    ],
+    "pattern": [
+      3.0,
+      5.5
+    ],
+    "tumbler": [
+      2.5,
+      4.5
+    ]
   },
   "niche_memory_days": 60,
   "timezone": "Europe/Istanbul"
