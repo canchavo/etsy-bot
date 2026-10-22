@@ -64,7 +64,7 @@ def _winner_block(win, n_ideas):
     if not win:
         return ""
     lines = "\n".join(f'- "{w["title"]}" ({w["sales"]} sale{"s" if w["sales"] > 1 else ""})' for w in win)
-    k = max(1, n_ideas // 3)
+    k = 2  # a couple of candidates; exactly one of them is used per day
     return f"""
 PROVEN BEST SELLERS in our own shop (real buyers paid for these):
 {lines}
@@ -141,15 +141,20 @@ def pick_niches(n: int, used: list, today=None) -> list:
         t = i["type"]
         if t not in weights or per_type.get(t, 0) >= max_same:
             continue
+        if i.get("variation_of"):
+            continue  # best-seller variations are added separately: exactly one per day
         chosen.append(i)
         per_type[t] = per_type.get(t, 0) + 1
         if len(chosen) >= n:
             break
     # make sure one product a day builds on a proven best seller (when we have one)
+    # exactly one product a day builds on a proven best seller (when we have one);
+    # the others keep coming from the normal season + Etsy search research
     variations = [i for i in scored if i.get("variation_of") and i.get("type") in weights]
-    if variations and chosen and not any(i.get("variation_of") for i in chosen):
+    if variations and chosen:
         chosen[-1] = variations[0]
-    reserve = [i for i in scored if i not in chosen]
+    # reserves (used when a build fails) never add a second variation
+    reserve = [i for i in scored if i not in chosen and not i.get("variation_of")]
     return chosen, reserve
 
 
